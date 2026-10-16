@@ -1,7 +1,7 @@
 export const CONFIG = Object.freeze({
   // Sin VITE_API_URL solo se usa el Web App de pruebas en desarrollo; el build de producción exige la variable.
   API_URL: import.meta.env.VITE_API_URL ||
-    (import.meta.env.DEV ? 'https://script.google.com/macros/s/AKfycbxCZkYI7YWdV_0kT_XhFym2S_RTjSp3eNbZov9rpiY5_QqthoI-E9UhyWmG_PUse4KbuQ/exec' : ''),
+    (import.meta.env.DEV ? 'https://script.google.com/macros/s/AKfycbxtrXZHPjlWvvIOg3YcwBeEHbayh9rTAt1cbvRjiPL7Mh6TwgJDd70Fd18ePDoOKewUEw/exec' : ''),
   FIREBASE: Object.freeze({
     apiKey: 'AIzaSyD3P1zTnWwW6VonvZghgVTnb0Eokxr7AzE',
     authDomain: 'personal-32795.firebaseapp.com',
