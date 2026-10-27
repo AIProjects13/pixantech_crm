@@ -9,7 +9,7 @@ const Cli = { cur: null }; // cliente abierto: { idLead, plan, pagos, status }
 const cobroPill = (st) => '<span class="pill" style="--c:' + COBRO_META[st.estado] + '">' +
   (st.estado === 'Vencido' ? 'Vencido hace ' + st.dias + (st.dias === 1 ? ' día' : ' días')
     : st.estado === 'Por vencer' ? (st.dias === 0 ? 'Vence hoy' : 'Vence en ' + st.dias + (st.dias === 1 ? ' día' : ' días'))
-    : st.estado === 'Al día' ? 'Al día' : 'Sin plan') + '</span>';
+    : st.estado === 'Al día' ? 'Al día' : st.estado === 'Inactivo' ? 'Inactivo' : 'Sin plan') + '</span>';
 
 Object.assign(Views, {
   clientes() {
@@ -39,7 +39,7 @@ Object.assign(Views, {
           { k: 'nombre', label: 'Cliente', sort: (c) => c.nombre },
           { k: 'plan', label: 'Plan', sort: (c) => Number(c.montoCobro || 0), w: '170px' },
           { k: 'siguiente', label: 'Próxima cuota', sort: (c) => (c.cobro.siguiente ? c.cobro.siguiente.key : ''), w: '170px' },
-          { k: 'estado', label: 'Estado de cobro', sort: (c) => ['Vencido', 'Por vencer', 'Al día', 'Sin plan'].indexOf(c.cobro.estado) * 100000 - c.cobro.dias, w: '190px' },
+          { k: 'estado', label: 'Estado de cobro', sort: (c) => ['Vencido', 'Por vencer', 'Al día', 'Sin plan', 'Inactivo'].indexOf(c.cobro.estado) * 100000 - c.cobro.dias, w: '190px' },
           { k: 'contacto', label: 'Contacto', sort: (c) => c.contacto },
           { k: 'owner', label: 'Responsable', sort: (c) => Team.nombre(c.asignadoA), w: '140px' },
           { k: 'acc', label: '', w: '90px' },
@@ -107,7 +107,8 @@ function cuotasView(d) {
 function clienteHtml() {
   const d = Cli.cur, c = clienteDe(d.idLead), P = d.plan || {};
   const plan = Cobros.planDe(P);
-  const st = Cobros.status(plan, d.pagos, S.hoy);
+  const inactivo = P.activo === false;
+  const st = inactivo ? { estado: 'Inactivo', dias: 0, siguiente: null, vencidas: 0 } : Cobros.status(plan, d.pagos, S.hoy);
   const tiene = Cobros.schedule(plan, S.hoy, 0).length > 0;
   const cv = cuotasView(d);
   const fld = (label, inner, span) => '<div class="' + (span || '') + '"><label class="label">' + label + '</label>' + inner + '</div>';
@@ -124,7 +125,23 @@ function clienteHtml() {
     '</div>' + (d.pagos.some((p) => !p.anulado) && tiene ? '<p class="text-xs muted mt-2">Si cambias fechas, los pagos ya registrados siguen en el historial pero solo cubren cuotas que coincidan con la nueva fecha.</p>' : '') +
     '<div class="flex justify-end mt-3"><button class="btn btn-primary btn-sm" data-act="planSave">' + ic('save') + ' Guardar plan</button></div></div>';
 
-  const cuotas = !tiene ? '' :
+  // Comisión del cliente: quién la cobra y cuánto sale por cuota; el administrador la ajusta y activa o desactiva al cliente.
+  const admin = S.user.isAdmin, pct = c.comisionPct == null ? S.comisionDefecto : c.comisionPct;
+  const porCuota = Math.round((plan.monto || 0) * pct) / 100;
+  const acred = Comision.porAcreditar(Object.assign({}, c, { cobro: st, activo: !inactivo }));
+  const inactBanner = inactivo
+    ? '<div class="banner danger">' + ic('ban', 'mt-0.5') + '<div class="flex-1"><b>Cliente inactivo (cancelado).</b> No cobra ni genera comisión' + (P.motivoInactivo ? ': ' + esc(P.motivoInactivo) : '') + '.' +
+      (admin ? '<div class="mt-2"><button class="btn btn-primary btn-sm" data-act="cliActive">' + ic('undo') + ' Reactivar cliente</button></div>' : '') + '</div></div>' : '';
+  const comCard = '<div class="glass-soft p-4"><div class="flex items-center justify-between mb-2"><h4 class="font-bold">' + ic('trophy') + ' Comisión</h4>' +
+    '<span class="chip">' + esc(pct) + ' %</span></div>' +
+    '<p class="text-sm">La cobra <b>' + esc(Team.nombre(c.comisionPara) || 'nadie (sin responsable)') + '</b>' + (tiene ? ': ' + esc(money2(porCuota)) + ' por cada cuota pagada' : '') + '.</p>' +
+    (acred ? '<p class="text-xs text-amber-600 mt-1">' + ic('clock') + ' Por acreditar: ' + esc(money2(acred)) + ' (cuotas vencidas). Se acredita cuando su pago quede registrado.</p>' : '') +
+    (admin ? '<div class="flex flex-wrap items-end gap-2 mt-3"><div class="flex-1 min-w-[130px]"><label class="label">Cambiar % (vacío = ' + esc(S.comisionDefecto) + ' % por defecto)</label>' +
+      '<input class="input" id="cmCli" type="number" min="0" max="100" step="0.5" value="' + esc(c.comisionPct == null ? '' : c.comisionPct) + '"></div>' +
+      '<button class="btn btn-primary btn-sm" data-act="cmSaveCli">' + ic('save') + ' Guardar</button>' +
+      (inactivo ? '' : '<button class="btn btn-ghost btn-sm text-rose-500" data-act="cliInactive">' + ic('ban') + ' Marcar inactivo</button>') + '</div>' : '') + '</div>';
+
+  const cuotas = !tiene || inactivo ? '' :
     '<div class="glass-soft p-4"><div class="flex items-center justify-between mb-2"><h4 class="font-bold">Cuotas</h4>' +
     '<button class="btn btn-primary btn-sm" data-act="payNew">' + ic('plus') + ' Registrar pago</button></div>' +
     cv.pend.slice(0, 14).map((x) => {
@@ -140,11 +157,13 @@ function clienteHtml() {
       '<div class="flex items-start gap-3"><div class="min-w-0 flex-1"><div class="text-sm font-bold ' + (p.anulado ? 'line-through' : '') + '">' + esc(p.reciboNo) + ' · ' + esc(money2(p.monto)) + '</div>' +
       '<div class="text-xs muted">' + esc(p.concepto) + ' del ' + esc(fmtDate(p.cubre)) + ' · pagado el ' + esc(fmtDate(p.fechaPago)) + ' · ' + esc(p.metodo) + (p.referencia ? ' · ' + esc(p.referencia) : '') + '</div>' +
       '<div class="text-xs muted">Registró ' + esc(Team.nombre(p.registradoPor)) + (p.anulado ? ' · <b class="text-rose-500">ANULADO</b>' : '') + '</div>' +
+      (!p.anulado && Number(p.comisionMonto) > 0 ? '<div class="text-xs text-emerald-600">' + ic('trophy') + ' Comisión ' + esc(money2(p.comisionMonto)) + ' (' + esc(p.comisionPct) + ' %) para ' + esc(Team.nombre(p.comisionPara)) + '</div>' : '') +
       (p.reciboEnviado ? '<div class="text-xs text-emerald-500 mt-1">' + ic('check') + ' Recibo enviado: ' + esc(p.reciboEnviado) + '</div>' : '') +
       (p.nota ? '<div class="text-xs mt-1 break-words">' + esc(p.nota) + '</div>' : '') + '</div>' +
       '<div class="flex flex-col gap-1.5 flex-none">' +
       (p.tieneComprobante ? '<button class="btn btn-ghost btn-sm" data-act="payProof" data-id="' + esc(p.id) + '">' + ic('image') + ' Comprobante</button>' : '') +
-      (!p.anulado ? '<button class="btn btn-ghost btn-sm" data-act="payReceipt" data-id="' + esc(p.id) + '">' + ic('receipt') + ' Recibo</button>' +
+      (!p.anulado ? '<button class="btn btn-ghost btn-sm" data-act="payView" data-id="' + esc(p.id) + '">' + ic('receipt') + ' Ver recibo</button>' +
+        '<button class="btn btn-ghost btn-sm" data-act="payReceipt" data-id="' + esc(p.id) + '">' + ic('send') + ' Enviar</button>' +
         '<button class="btn btn-ghost btn-sm text-rose-500" data-act="payVoid" data-id="' + esc(p.id) + '">Anular</button>' : '') + '</div></div></div>').join('')
       : '<p class="text-sm muted">Aún no hay pagos registrados.</p>') + '</div>';
 
@@ -157,7 +176,7 @@ function clienteHtml() {
     '<div class="flex flex-wrap gap-2">' + (c.whatsapp ? '<a class="btn btn-sm wa" href="' + esc(waUrl(c.whatsapp)) + '" target="_blank" rel="noopener">' + ic('whatsapp') + ' WhatsApp</a>' : '') +
     (c.email ? '<a class="btn btn-sm ml" href="' + esc(mailUrl(c.email)) + '" target="_blank" rel="noopener">' + ic('mail') + ' Email</a>' : '') +
     '<button class="btn btn-sm btn-ghost" data-act="openLead" data-id="' + esc(d.idLead) + '">' + ic('file') + ' Ver prospecto y bitácora</button></div>' +
-    planForm + cuotas + hist + '</div>';
+    inactBanner + comCard + planForm + cuotas + hist + '</div>';
 }
 
 /* ============================= REGISTRAR PAGO ============================= */
@@ -260,7 +279,23 @@ function reciboModal(idPago) {
   });
 }
 
+/** Muestra el recibo tal como lo recibe el cliente; se puede imprimir o guardar como PDF desde el navegador. */
+async function verRecibo(idPago) {
+  try {
+    const r = await Api.call('pagos.receipt', { id: idPago });
+    const m = UI.modal('<div class="flex items-center justify-between mb-3"><h3 class="text-lg font-extrabold">Recibo ' + esc(r.reciboNo) + '</h3>' +
+      '<button class="btn btn-ghost btn-icon" data-close aria-label="Cerrar">' + ic('x') + '</button></div>' +
+      // El recibo ya viene con todo escapado desde el servidor; se muestra aislado, sin scripts.
+      '<iframe id="rcFrame" class="w-full rounded-xl border hairline" style="height:min(70vh,560px);background:#fff" sandbox="allow-same-origin allow-modals" title="Recibo"></iframe>' +
+      '<div class="flex flex-wrap justify-end gap-2 mt-3"><button class="btn btn-ghost" data-act="payReceipt" data-id="' + esc(idPago) + '">' + ic('send') + ' Enviar</button>' +
+      '<button class="btn btn-primary" id="rcPrint">' + ic('receipt') + ' Imprimir / guardar PDF</button></div>', { wide: true });
+    $('#rcFrame', m.el).srcdoc = r.html;
+    $('#rcPrint', m.el).addEventListener('click', () => { const w = $('#rcFrame', m.el).contentWindow; w.focus(); w.print(); });
+  } catch (e) { UI.toast(e.message, 'error'); }
+}
+
 Object.assign(Actions, {
+  payView: (el) => verRecibo(el.dataset.id),
   cliFiltro: (el) => { const st = Table.state('cli'); st.f.estadoCobro = st.f.estadoCobro === el.dataset.f ? '' : el.dataset.f; go('clientes'); },
   openCobros: (el) => openCliente(el.dataset.id),
   async planSave(el) {
@@ -273,6 +308,26 @@ Object.assign(Actions, {
     } catch (e) { UI.toast(e.message, 'error'); UI.busy(el, false); }
   },
   payNew: (el) => pagoModal(el && el.dataset ? el.dataset.k : ''),
+  async cmSaveCli(el) {
+    UI.busy(el, true, 'Guardando…');
+    try {
+      await Api.call('leads.setCommission', { id: Cli.cur.idLead, pct: $('#cmCli').value });
+      const l = await Api.call('leads.get', { id: Cli.cur.idLead }); upsertLead(l);
+      await reloadCliente();
+      UI.toast('Comisión guardada', 'ok');
+    } catch (e) { UI.toast(e.message, 'error'); UI.busy(el, false); }
+  },
+  async cliInactive() {
+    if (!(await UI.confirm('Marcar cliente como inactivo', 'Deja de cobrar, no se podrán registrar pagos y ya no genera comisión. Puedes reactivarlo cuando quieras.', { danger: true, ok: 'Marcar inactivo' }))) return;
+    const motivo = await UI.prompt('Motivo', 'Por ejemplo: canceló el servicio', '');
+    if (motivo === null) return;
+    try { await Api.call('clientes.setActive', { idLead: Cli.cur.idLead, activo: false, motivo }); await reloadCliente(); UI.toast('Cliente marcado como inactivo', 'ok'); }
+    catch (e) { UI.toast(e.message, 'error'); }
+  },
+  async cliActive() {
+    try { await Api.call('clientes.setActive', { idLead: Cli.cur.idLead, activo: true }); await reloadCliente(); UI.toast('Cliente reactivado', 'ok'); }
+    catch (e) { UI.toast(e.message, 'error'); }
+  },
   payReceipt: (el) => reciboModal(el.dataset.id),
   async payProof(el) {
     try {

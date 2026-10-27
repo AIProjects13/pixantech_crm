@@ -112,6 +112,16 @@ function drawerHtml(l) {
 
   const tplOpts = S.plantillas.map((t) => '<option value="' + esc(t.id) + '" ' + (t.activa ? 'selected' : '') + '>' + esc(t.nombre) + '</option>').join('');
 
+  // Comisión: el administrador la fija; el responsable ve la suya; nadie más la ve.
+  const defPct = S.comisionDefecto == null ? 20 : S.comisionDefecto;
+  const comHtml = admin
+    ? '<div class="glass-soft p-4"><div class="flex flex-wrap items-end gap-3"><div class="flex-1 min-w-[150px]"><label class="label">Comisión de este prospecto (%)</label>' +
+      '<input class="input" id="cmPct" type="number" min="0" max="100" step="0.5" placeholder="' + esc(defPct) + '" value="' + esc(l.comisionPct == null ? '' : l.comisionPct) + '"></div>' +
+      '<button class="btn btn-primary btn-sm" data-act="cmSave">' + ic('save') + ' Guardar</button></div>' +
+      '<p class="text-xs muted mt-2">Vacío = ' + esc(defPct) + ' % por defecto. Es de por vida mientras el cliente esté activo y se acredita al registrar cada pago; si lo reasignas, pasa con el cliente a quien lo reciba. Solo tú la ves y la cambias.</p></div>'
+    : (Team.esMio(l) && l.comisionEfectiva != null
+      ? '<div class="banner info">' + ic('trophy', 'mt-0.5') + '<div>Tu comisión por este prospecto: <b>' + esc(l.comisionEfectiva) + ' %</b> de cada pago registrado, de por vida mientras el cliente esté activo y pagando.</div></div>' : '');
+
   return '<div class="flex items-start gap-3 p-5 border-b hairline">' +
     '<div class="w-12 h-12 rounded-2xl grid place-items-center font-bold text-white flex-none" style="background:linear-gradient(135deg,var(--rail),var(--accent))">' + esc(initials(l.nombre)) + '</div>' +
     '<div class="min-w-0 flex-1"><h3 class="text-lg font-extrabold leading-tight break-words">' + esc(l.nombre) + '</h3>' +
@@ -131,6 +141,8 @@ function drawerHtml(l) {
       '<option value="Ganado">Ganado (pasa a Clientes)</option></select></div>' : '') +
 
     segHtml +
+
+    comHtml +
 
     (P.correo_enviar && l.email && ed && S.plantillas.length ? '<div class="glass-soft p-3 flex flex-wrap items-center gap-2">' + ic('send', 'text-indigo-500') + '<span class="text-sm font-semibold">Enviar plantilla</span>' +
       '<select id="dTpl" class="input !w-auto flex-1 !py-1.5 text-sm">' + tplOpts + '</select><button class="btn btn-primary btn-sm" data-act="sendTpl">Enviar</button></div>' : '') +
@@ -391,6 +403,15 @@ Object.assign(Actions, {
   },
 
   segNew: (el) => segModal({ idLead: el && el.dataset.id }),
+  async cmSave(el) {
+    UI.busy(el, true, 'Guardando…');
+    try {
+      upsertLead(await Api.call('leads.setCommission', { id: S.cur.id, pct: $('#cmPct').value }));
+      if (S.cur.estado === 'Ganado') S.clientes = await Api.call('clientes.list'); // el cliente trae el % efectivo
+      refreshView(); await reloadDrawer();
+      UI.toast('Comisión guardada', 'ok');
+    } catch (e) { UI.toast(e.message, 'error'); UI.busy(el, false); }
+  },
   async segDone(el) {
     try { Seg.upsert(await Api.call('seguimientos.done', { id: el.dataset.id, hecho: true })); refreshView(); if (S.cur) reloadDrawer(); UI.toast('Seguimiento completado', 'ok'); }
     catch (e) { UI.toast(e.message, 'error'); }

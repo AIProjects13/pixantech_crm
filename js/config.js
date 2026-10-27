@@ -29,7 +29,7 @@ const ESTADO_META = {
 };
 const PAGO_META = { 'Al día': '#10b981', 'Pendiente': '#f59e0b', 'Moroso': '#f43f5e' };
 // Estado de cobro calculado por plan y pagos (Cobros.status).
-const COBRO_META = { 'Al día': '#22b573', 'Por vencer': '#f6b73c', 'Vencido': '#ef5b6b', 'Sin plan': '#94a3b8' };
+const COBRO_META = { 'Al día': '#22b573', 'Por vencer': '#f6b73c', 'Vencido': '#ef5b6b', 'Sin plan': '#94a3b8', 'Inactivo': '#64748b' };
 const CERRADOS = ['Ganado', 'Perdido'];
 const TIPOS_SEGUIMIENTO = ['Llamada', 'WhatsApp', 'Reunión', 'Correo', 'Otro'];
 const TIPO_ICON = { 'Llamada': 'phone', 'WhatsApp': 'whatsapp', 'Reunión': 'video', 'Correo': 'mail', 'Otro': 'clock' };

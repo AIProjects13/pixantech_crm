@@ -6,6 +6,7 @@ const S = {
   usuariosAsignables: [], view: 'dashboard', loadedAt: 0,
   ui: { q: '', owner: '', dueOnly: false, segDia: '', calMes: '' },
   sel: new Set(), // prospectos marcados en la tabla (acciones del administrador)
+  comisionDefecto: 20, // % de comisión por defecto (viene del servidor)
   imp: { rows: [], selected: new Set(), file: '', error: '', extraLabels: [], truncated: false, open: false, defaults: { rubro: '', pais: 'Guatemala', region: '' } },
   cur: null, tplSel: null, quill: null,
 };

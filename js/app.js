@@ -10,12 +10,13 @@ const VIEWS = {
   prospectos: { t: 'Prospectos', s: 'Tabla completa: ordena, filtra y exporta', i: 'table', can: () => true },
   clientes: { t: 'Clientes', s: 'Cobros, pagos y recibos', i: 'wallet', can: (u) => u.perms.clientes_ver, red: true,
     badge: () => S.clientes.filter((c) => c.cobro && c.cobro.estado === 'Vencido').length },
+  comisiones: { t: 'Comisiones', s: 'Lo que generan tus clientes cada vez que pagan', i: 'trophy', can: () => true },
   perdidos: { t: 'Perdidos', s: 'No se contactan hasta su fecha de revisión', i: 'archive', can: () => true },
   importar: { t: 'Importar CSV', s: 'Carga prospectos desde un archivo, sin duplicados', i: 'upload', can: (u) => u.perms.leads_crear },
   config: { t: 'Configuración', s: 'Ajustes y plantillas de correo', i: 'gear', can: (u) => u.isAdmin || u.perms.plantillas_editar },
   usuarios: { t: 'Equipo', s: 'Perfiles y niveles de acceso', i: 'shield', can: (u) => u.isAdmin },
 };
-const NAV_GROUPS = [['dashboard', 'bolsa', 'pipeline', 'agenda', 'prospectos', 'clientes', 'perdidos'], ['importar', 'config', 'usuarios']];
+const NAV_GROUPS = [['dashboard', 'bolsa', 'pipeline', 'agenda', 'prospectos', 'clientes', 'comisiones', 'perdidos'], ['importar', 'config', 'usuarios']];
 
 const Nav = {
   collapsed: store.get('pxt-rail') === 'mini', // preferencia en escritorio
@@ -182,7 +183,7 @@ const App = {
     try {
       const d = await Api.call('auth.bootstrap');
       Object.assign(S, {
-        user: d.user, estados: d.estados, estadosPago: d.estadosPago, hoy: d.hoy, leads: d.leads, seguimientos: d.seguimientos || [],
+        user: d.user, estados: d.estados, estadosPago: d.estadosPago, hoy: d.hoy, leads: d.leads, seguimientos: d.seguimientos || [], comisionDefecto: d.comisionDefecto,
         clientes: d.clientes, plantillas: d.plantillas, usuariosAsignables: d.usuariosAsignables, loadedAt: Date.now(),
       });
       Seg.recalc();

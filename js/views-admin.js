@@ -46,6 +46,7 @@ Object.assign(Views, {
   usuarios() {
     return '<div class="flex flex-wrap items-center gap-3 mb-4"><p class="text-sm muted flex-1">Solo los administradores crean perfiles y asignan niveles. Los permisos de cada nivel se editan en la hoja <b>Niveles</b>.</p>' +
       '<button class="btn btn-primary" data-act="userNew"><i class="fa-solid fa-user-plus"></i> Nuevo usuario</button></div>' +
+      '<details class="glass p-4 mb-4"><summary class="font-bold cursor-pointer select-none">' + ic('trophy', 'text-amber-500') + ' Reglas de comisión (se explican a cada persona al crear su perfil)</summary><div class="mt-3">' + Comision.reglasHtml() + '</div></details>' +
       '<div id="usrTable" class="mb-4"><div class="glass p-5"><div class="skeleton h-10 w-full"></div></div></div>' +
       '<div id="nivBox" class="glass p-5"></div>';
   },
@@ -190,7 +191,9 @@ function userFormModal() {
     '<form id="nuForm" class="space-y-3"><div><label class="label">Email *</label><input name="email" type="email" class="input" required></div>' +
     '<div><label class="label">Nombre completo *</label><input name="nombre" class="input" required maxlength="100"></div>' +
     '<div><label class="label">Nivel *</label><select name="nivel" class="input">' + niveles.map((n) => '<option ' + (n === 'Agente' ? 'selected' : '') + '>' + esc(n) + '</option>').join('') + '</select></div>' +
-    '<p class="text-xs muted">Se crea su cuenta en Firebase y recibirá un correo para definir su contraseña.</p>' +
+    '<p class="text-xs muted">Se crea su cuenta y recibirá un correo para definir su contraseña.</p>' +
+    '<div class="glass-soft p-3"><div class="font-bold text-sm mb-2">' + ic('trophy', 'text-amber-500') + ' Comisiones: lo que debe saber esta persona</div>' + Comision.reglasHtml() +
+    '<p class="text-xs muted mt-2">Al crear el perfil se le envía un correo con estas reglas, y siempre las tiene en la pantalla «Comisiones».</p></div>' +
     '<div id="nuErr" class="text-sm text-rose-500" hidden></div>' +
     '<div class="flex justify-end gap-2 pt-2"><button type="button" class="btn btn-ghost" data-close>Cancelar</button><button class="btn btn-primary" id="nuBtn"><i class="fa-solid fa-user-plus"></i> Crear usuario</button></div></form>');
   $('#nuForm', m.el).addEventListener('submit', async (e) => {
